@@ -24,6 +24,10 @@ import UIKit
     
     @objc optional func willMoveToPage(_ controller: UIViewController, index: Int)
     @objc optional func didMoveToPage(_ controller: UIViewController, index: Int)
+    
+    @objc optional func didSelectPage(_ controller: UIViewController, index: Int)
+    @objc optional func didSwipeToScroll(_ controller: UIViewController, index: Int)
+    
 }
 
 class MenuItemView: UIView {
@@ -34,7 +38,7 @@ class MenuItemView: UIView {
     
     func setUpMenuItemView(_ menuItemWidth: CGFloat, menuScrollViewHeight: CGFloat, indicatorHeight: CGFloat, separatorPercentageHeight: CGFloat, separatorWidth: CGFloat, separatorRoundEdges: Bool, menuItemSeparatorColor: UIColor) {
         titleLabel = UILabel(frame: CGRect(x: 0.0, y: 0.0, width: menuItemWidth, height: menuScrollViewHeight - indicatorHeight))
-        
+        titleLabel?.numberOfLines = 0
         menuItemSeparator = UIView(frame: CGRect(x: menuItemWidth - (separatorWidth / 2), y: floor(menuScrollViewHeight * ((1.0 - separatorPercentageHeight) / 2.0)), width: separatorWidth, height: floor(menuScrollViewHeight * separatorPercentageHeight)))
         menuItemSeparator!.backgroundColor = menuItemSeparatorColor
         
@@ -44,12 +48,12 @@ class MenuItemView: UIView {
         
         menuItemSeparator!.isHidden = true
         self.addSubview(menuItemSeparator!)
-        
         self.addSubview(titleLabel!)
     }
     
     func setTitleText(_ text: NSString) {
         if titleLabel != nil {
+            print("in")
             titleLabel!.text = text as String
             titleLabel!.numberOfLines = 0
             titleLabel!.sizeToFit()
@@ -610,7 +614,6 @@ open class CAPSPageMenu: UIViewController, UIScrollViewDelegate, UIGestureRecogn
                         if !didTapMenuItemToScroll {
                             if didScrollAlready {
                                 var newScrollDirection : CAPSPageMenuScrollDirection = .other
-                                
                                 if (CGFloat(startingPageForScroll) * scrollView.frame.width > scrollView.contentOffset.x) {
                                     newScrollDirection = .right
                                 } else if (CGFloat(startingPageForScroll) * scrollView.frame.width < scrollView.contentOffset.x) {
@@ -663,8 +666,11 @@ open class CAPSPageMenu: UIViewController, UIScrollViewDelegate, UIGestureRecogn
                                 
                                 didScrollAlready = true
                             }
-                            
                             lastControllerScrollViewContentOffset = scrollView.contentOffset.x
+                        }else {
+                            //                            print("didTapItemToScroll")
+                            let currentController = controllerArray[currentPageIndex]
+                            delegate?.didSelectPage?(currentController, index: currentPageIndex)
                         }
                         
                         var ratio : CGFloat = 1.0
@@ -687,6 +693,8 @@ open class CAPSPageMenu: UIViewController, UIScrollViewDelegate, UIGestureRecogn
                         if page != currentPageIndex {
                             lastPageIndex = currentPageIndex
                             currentPageIndex = page
+                            let currentController = controllerArray[currentPageIndex]
+                            delegate?.didSwipeToScroll?(currentController, index: currentPageIndex)
                             
                             if pagesAddedDictionary[page] != page && page < controllerArray.count && page >= 0 {
                                 addPageAtIndex(page)
@@ -760,6 +768,7 @@ open class CAPSPageMenu: UIViewController, UIScrollViewDelegate, UIGestureRecogn
     
     func scrollViewDidEndTapScrollingAnimation() {
         // Call didMoveToPage delegate function
+        
         let currentController = controllerArray[currentPageIndex]
         delegate?.didMoveToPage?(currentController, index: currentPageIndex)
         
@@ -1043,7 +1052,7 @@ open class CAPSPageMenu: UIViewController, UIScrollViewDelegate, UIGestureRecogn
      
      :parameter index: Index of the page to move to
      */
-    open func moveToPage(_ index: Int) {
+    open func moveToPageWithAnimation(_ index: Int,_ animated: Bool) {
         if index >= 0 && index < controllerArray.count {
             // Update page if changed
             if index != currentPageIndex {
@@ -1073,11 +1082,16 @@ open class CAPSPageMenu: UIViewController, UIScrollViewDelegate, UIGestureRecogn
             
             // Move controller scroll view when tapping menu item
             let duration : Double = Double(scrollAnimationDurationOnMenuItemTap) / Double(1000)
+            let xOffset : CGFloat = CGFloat(index) * self.controllerScrollView.frame.width
             
-            UIView.animate(withDuration: duration, animations: { () -> Void in
-                let xOffset : CGFloat = CGFloat(index) * self.controllerScrollView.frame.width
+            if (animated) {
+                UIView.animate(withDuration: duration, animations: { () -> Void in
+                    self.controllerScrollView.setContentOffset(CGPoint(x: xOffset, y: self.controllerScrollView.contentOffset.y), animated: false)
+                })
+            }else {
+                
                 self.controllerScrollView.setContentOffset(CGPoint(x: xOffset, y: self.controllerScrollView.contentOffset.y), animated: false)
-            })
+            }
         }
     }
 }
